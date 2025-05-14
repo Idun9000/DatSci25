@@ -10,14 +10,39 @@ from sklearn.decomposition import PCA # For PCA
 import transformers # For BERT model
 from tqdm import tqdm # For progress bar  
 import matplotlib.pyplot as plt
-import seaborn as sns
-
+import spacy
 # %%
 # Load the CSV file
-df = pd.read_csv('../data/PBramsCleaned/clean_parlamint3.csv')
+# df = pd.read_csv('../data/PBramsCleaned/clean_parlamint3.csv')
+df = pd.read_csv('../data/TildesSuperData/klima_speeches.csv')
+df
+#%%
+nlp = spacy.load("da_core_news_sm")
 
+def split_sentences(text):
+    return [sent.text.strip() for sent in nlp(text).sents]
+rows = []
+
+for _, row in tqdm(df.iterrows(), total=len(df)):
+    sentences = split_sentences(row['speech'])
+    for sent in sentences:
+        rows.append({
+            'year': row['year'],
+            'meeting_number': row['meeting_number'],
+            'speaker': row['speaker'],
+            'sentence': sent
+        })
+
+df_expanded = pd.DataFrame(rows)
+# Save df_expanded to CSV
+df_expanded.to_csv('../data/TildesSuperData/expanded_speeches.csv', index=False)
+
+# %%
+df=df_expanded
+df
+#%%
 # Filter rows containing the word "klima" in the 'text' column
-filtered_df = df[df['text'].str.contains('klima', case=False, na=False)]
+filtered_df = df[df['sentence'].str.contains('klima', case=False, na=False)]
 
 # Display the filtered rows
 filtered_df.head()
@@ -27,7 +52,7 @@ tokenizer = AutoTokenizer.from_pretrained("Maltehb/danish-bert-botxo")
 model = AutoModel.from_pretrained("Maltehb/danish-bert-botxo")
 
 # Sample 200 rows and reset index
-sampled_df = filtered_df.sample(n=200, random_state=42).reset_index(drop=True)
+sampled_df = filtered_df.sample(n=2000, random_state=42).reset_index(drop=True)
 
 # Define target tokens
 target_tokens = ["klima", "klimaet"]
@@ -35,12 +60,16 @@ target_ids = tokenizer.convert_tokens_to_ids(target_tokens)
 
 # Store embeddings
 rows = []
+#%%
+sampled_df
+
+
 # %%
 # Embedding with BERT and progress bar
 for index, row in tqdm(sampled_df.iterrows(), total=len(sampled_df), desc="Embedding rows"):
-    sentence = row['text']
-    speaker_name = row['Speaker_name']
-    year_month = row['YearMonth']
+    sentence = row['sentence']
+    speaker_name = row['speaker']
+    year = row['year']
     
     # Tokenize with truncation
     inputs = tokenizer(sentence, return_tensors="pt", padding=True, truncation=True, max_length=512)
@@ -59,25 +88,20 @@ for index, row in tqdm(sampled_df.iterrows(), total=len(sampled_df), desc="Embed
             rows.append({
                 "Speaker_name": speaker_name,
                 "text": sentence,
-                "YearMonth": year_month,
+                "Year": year,
                 "token": token_str,
                 **{f"dim_{i}": val for i, val in enumerate(embedding)}
             })
 
 # Build final DataFrame
 df = pd.DataFrame(rows)
-# Get the index of 'YearMonth' column
-ym_index = df.columns.get_loc('YearMonth')
-# Split 'YearMonth' into 'Year' and 'Month'
-year_month_split = df['YearMonth'].str.split('-', expand=True)
-df.insert(ym_index + 1, 'Year', year_month_split[0].astype(int))
-df.insert(ym_index + 2, 'Month', year_month_split[1].astype(int))
 
-
+#%%
+df
 # %%
 # Perform PCA on the embeddings and polot first two components
 # Select embeddings
-embeddings = df.iloc[:, 6:]
+embeddings = df.iloc[:, 4:]
 
 # Perform PCA with 2 components
 pca = PCA(n_components=10)
@@ -88,7 +112,7 @@ explained_variance = pca.explained_variance_ratio_
 print(f"Explained variance by PC1 and PC2: {explained_variance[0]:.2%}, {explained_variance[1]:.2%}")
 
 # Create new DataFrame with original first 4 columns and PCA results
-pca_df = df.iloc[:, :6].copy()
+pca_df = df.iloc[:, :4].copy()
 pca_df['PC1'] = pca_result[:, 0]
 pca_df['PC2'] = pca_result[:, 1]
 
@@ -96,7 +120,7 @@ pca_df['PC2'] = pca_result[:, 1]
 pca_df
 
 # Sort by Month, then Year
-pca_df_sorted = pca_df.sort_values(by=['Year', 'Month']).reset_index(drop=True)
+pca_df_sorted = pca_df.sort_values(by=['Year']).reset_index(drop=True)
 
 # Show the result
 pca_df_sorted
@@ -119,3 +143,22 @@ plt.legend(title='Year', bbox_to_anchor=(1.05, 1), loc='upper left')
 plt.tight_layout()
 plt.savefig('pca_plot.png', bbox_inches='tight')
 plt.show()
+
+# %%
+# Group by Year and compute mean PC1 and PC2
+mean_pca_by_year = pca_df_sorted.groupby('Year')[['PC1', 'PC2']].mean().reset_index()
+
+# Plot
+plt.figure(figsize=(10, 6))
+sns.scatterplot(data=mean_pca_by_year, x='PC1', y='PC2', hue='Year', palette='viridis', s=150)
+
+# Annotate with year labels
+for _, row in mean_pca_by_year.iterrows():
+    plt.text(row['PC1'] + 0.01, row['PC2'], str(row['Year']), fontsize=10)
+plt.ylabel('Mean Principal Component 2')
+plt.title('Mean PCA Embedding per Year')
+plt.legend(title='Year', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
+
+# %%
