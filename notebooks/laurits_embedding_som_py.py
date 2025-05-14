@@ -155,6 +155,9 @@ sns.scatterplot(data=mean_pca_by_year, x='PC1', y='PC2', hue='Year', palette='vi
 # Annotate with year labels
 for _, row in mean_pca_by_year.iterrows():
     plt.text(row['PC1'] + 0.01, row['PC2'], str(row['Year']), fontsize=10)
+
+# Labels and title
+plt.xlabel('Mean Principal Component 1')
 plt.ylabel('Mean Principal Component 2')
 plt.title('Mean PCA Embedding per Year')
 plt.legend(title='Year', bbox_to_anchor=(1.05, 1), loc='upper left')
