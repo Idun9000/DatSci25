@@ -49,13 +49,11 @@ filtered_df = df[df['sentence'].str.contains('klima', case=False, na=False)]
 filtered_df.head()
 
 # %%
-# Initialize the INSTRUCTOR model
-model_name = "intfloat/multilingual-e5-small"
+# Initialize the SENTENCE EMBEDDER model
+model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name)
 
-# Embedding instruction (Danish)
-instruction = "Beskriv hvilken mening ordet klima har i denne tekst"
 
 # %%
 # Generate sentence embeddings
@@ -67,7 +65,7 @@ for _, row in tqdm(filtered_df.iterrows(), total=len(filtered_df), desc="Embeddi
     year = row['year']
 
     # Format input for INSTRUCTOR model
-    model_input = [[f"query: {instruction}", f"passage: {sentence}"]]
+    model_input = [sentence]
     inputs = tokenizer(model_input, padding=True, truncation=True, max_length=512, return_tensors="pt")
 
     with torch.no_grad():
@@ -87,5 +85,4 @@ embedding_df = pd.DataFrame(embedding_rows)
 
 save_embeddings = True
 if save_embeddings:
-    embedding_df.to_csv('../data/embeddings/Instructor_Klima.csv', index=False)
-# %%
+    embedding_df.to_csv('../data/embeddings/Sentence_Klima.csv', index=False)
