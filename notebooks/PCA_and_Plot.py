@@ -2,13 +2,14 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+from sklearn.decomposition import PCA
 
 #%%
 # read csv file
 # df = pd.read_csv('../data/embeddings/DanishBertBotxo_Klima.csv')
 # df = pd.read_csv('../data/embeddings/Instructor_Klima.csv')
 df = pd.read_csv('../data/embeddings/Sentence_Klima.csv')
+
 # %%
 # Perform PCA on the embeddings and polot first two components
 # Select embeddings
@@ -36,7 +37,6 @@ pca_df_sorted = pca_df.sort_values(by=['Year']).reset_index(drop=True)
 
 # Show the result
 pca_df_sorted
-
 
 
 
@@ -119,3 +119,5 @@ plt.show()
 
 
 
+
+# %%
