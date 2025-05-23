@@ -10,6 +10,10 @@ class ProjectionAnalyzer:
         self.projected_matrix = None
         self.projected_in_1D = None
         self.projection_distance = None
+        self.positive_centroid = None
+        self.negative_centroid = None
+        self.positive_1D = None
+        self.negative_1D = None
 
         if matrix_concept is not None:
             self.label_col = matrix_concept.columns[-1]  # Assuming the last column is the label
@@ -59,11 +63,12 @@ class ProjectionAnalyzer:
         pos = self.concept_df[self.concept_df[self.label_col] == "positive"].iloc[:, :-1]
         neg = self.concept_df[self.concept_df[self.label_col] == "negative"].iloc[:, :-1]
         # Step 2: Compute the mean-difference vector
-        return self._positive_to_negative_vector(pos, neg)
-    
-    @staticmethod
-    def _positive_to_negative_vector(positive, negative):
+        return self.positive_to_negative_vector(pos, neg)
+
+    def positive_to_negative_vector(self, positive, negative):
         """Compute the mean-difference vector from negative to positive."""
+        self.positive_centroid = positive.mean().to_frame().T
+        self.negative_centroid = negative.mean().to_frame().T
         posneg_vector = positive.mean().to_frame().T - negative.mean().to_frame().T
         return pd.DataFrame(posneg_vector)
 
@@ -72,8 +77,16 @@ class ProjectionAnalyzer:
         unit_vector = vector / np.linalg.norm(vector)  # Step 1: Normalize the vector
         projection, projection_distance = self._project_matrix_to_vector_with_distance(matrix, vector)  # Step 2: Project the matrix onto the vector
         projection_in_1D_subspace = projection.iloc[:, 0] / unit_vector.iloc[:, 0][0]  # Step 3: Compute the projection in the 1D subspace
-        return projection, projection_in_1D_subspace, projection_distance  # Step 4: Return both projections
 
+        # --- ADD CENTROID PRECITION IN 1D ---
+        self.positive_1D, my_cache= self._project_matrix_to_vector_with_distance(self.positive_centroid, vector)
+        self.positive_1D = self.positive_1D.iloc[:, 0] / unit_vector.iloc[:, 0][0]
+        self.negative_1D, my_cache= self._project_matrix_to_vector_with_distance(self.negative_centroid, vector)
+        self.negative_1D = self.negative_1D.iloc[:, 0] / unit_vector.iloc[:, 0][0]
+
+
+        return projection, projection_in_1D_subspace, projection_distance  # Step 4: Return both projections
+        
     @staticmethod
     def _project_matrix_to_vector_with_distance(matrix, vector):
         """Project matrix onto subspace spanned by the vector and compute distances."""

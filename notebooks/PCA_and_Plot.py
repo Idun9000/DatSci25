@@ -10,10 +10,11 @@ from sklearn.decomposition import PCA
 # df = pd.read_csv('../data/embeddings/Instructor_Klima.csv')
 df = pd.read_csv('../data/embeddings/Sentence_Klima.csv')
 
+df
 # %%
 # Perform PCA on the embeddings and polot first two components
 # Select embeddings
-embeddings = df.iloc[:, 4:]
+embeddings = df.iloc[:, :-5]
 
 # Perform PCA with 2 components
 pca = PCA(n_components=10)
@@ -24,7 +25,7 @@ explained_variance = pca.explained_variance_ratio_
 print(f"Explained variance by PC1, PC2 and PC3: {explained_variance[0]:.2%}, {explained_variance[1]:.2%}, {explained_variance[2]:.2%}")
 
 # Create new DataFrame with original first 4 columns and PCA results
-pca_df = df.iloc[:, :4].copy()
+pca_df = df.iloc[:, -5:].copy()
 pca_df['PC1'] = pca_result[:, 0]
 pca_df['PC2'] = pca_result[:, 1]
 pca_df['PC3'] = pca_result[:, 2]
@@ -33,7 +34,7 @@ pca_df['PC3'] = pca_result[:, 2]
 pca_df
 
 # Sort by Month, then Year
-pca_df_sorted = pca_df.sort_values(by=['Year']).reset_index(drop=True)
+pca_df_sorted = pca_df.sort_values(by=['year']).reset_index(drop=True)
 
 # Show the result
 pca_df_sorted
@@ -59,15 +60,15 @@ plt.show()
 
 #%%
 # Group by Year and compute mean PC1 and PC2
-mean_pca_by_year = pca_df_sorted.groupby('Year')[['PC1', 'PC2']].mean().reset_index()
+mean_pca_by_year = pca_df_sorted.groupby('year')[['PC1', 'PC2']].mean().reset_index()
 
 # Plot
 plt.figure(figsize=(10, 6))
-sns.scatterplot(data=mean_pca_by_year, x='PC1', y='PC2', hue='Year', palette='viridis', s=150)
+sns.scatterplot(data=mean_pca_by_year, x='PC1', y='PC2', hue='year', palette='viridis', s=150)
 
 # Annotate with year labels
 for _, row in mean_pca_by_year.iterrows():
-    plt.text(row['PC1'] + 0.01, row['PC2'], str(row['Year']), fontsize=10)
+    plt.text(row['PC1'], row['PC2'] + 0.001, str(round(row['year'])), fontsize=6)
 
 # Labels and title
 plt.xlabel('Mean Principal Component 1')
@@ -80,15 +81,15 @@ plt.show()
 # %%
 # Calculate rolling window means (5-year window)
 rolling_means = []
-years = sorted(pca_df_sorted['Year'].unique())
+years = sorted(pca_df_sorted['year'].unique())
 
 for i in range(len(years) - 4):  # -4 to ensure we have 5 years for each window
     window_years = years[i:i+5]
-    window_data = pca_df_sorted[pca_df_sorted['Year'].isin(window_years)]
+    window_data = pca_df_sorted[pca_df_sorted['year'].isin(window_years)]
     mean_pc1 = window_data['PC1'].mean()
     mean_pc2 = window_data['PC2'].mean()
     rolling_means.append({
-        'Years': f"{window_years[0]}-{window_years[-1]}",
+        'years': f"{window_years[0]}-{window_years[-1]}",
         'PC1': mean_pc1,
         'PC2': mean_pc2
     })

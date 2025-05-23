@@ -1,5 +1,6 @@
 # %%
 import sys, os
+import pandas as pd 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from core.loader import CorpusLoader
 from core.embedder import Embedder
@@ -29,32 +30,27 @@ result = klimaMPNET.iloc[:, -5:].copy()
 result["sentiment"] = analyzer.projected_in_1D
 
 
+# Begin concept vector collection
+concept_vectors = analyzer.concept_vector
 
 result.head()
-
 # %%
 # Make refrence embeddings to get a sense of projection scale.
-
-import pandas as pd
-sentences = ["query: Det er godt.", "query: Det er okay.", "query: Det er dårligt."]
-refrence_df = pd.DataFrame({'sentence': sentences, 'fill' : [1, 2, 3]})
-refrence_MPNET = MultiLingMPNET.embed(sentences, cache_path="../data/embeddings/refrence_posneg")
-refrence_MPNET["extra_column"] = ["pos","neu","neg"]
-refrence_MPNET
-analyzer = ProjectionAnalyzer(matrix_concept=sentimentMPNET, matrix_project=refrence_MPNET)
-analyzer.project()
-analyzer.projected_in_1D
+# import pandas as pd
+# sentences = ["query: Det er godt.", "query: Det er okay.", "query: Det er dårligt."]
+# refrence_df = pd.DataFrame({'sentence': sentences, 'fill' : [1, 2, 3]})
+# refrence_MPNET = MultiLingMPNET.embed(sentences, cache_path="../data/embeddings/refrence_posneg")
+# refrence_MPNET["extra_column"] = ["pos","neu","neg"]
+# refrence_MPNET
+# analyzer = ProjectionAnalyzer(matrix_concept=sentimentMPNET, matrix_project=refrence_MPNET)
+# analyzer.project()
+# analyzer.projected_in_1D
 
 
 
 # %%
 import seaborn as sns
 import matplotlib.pyplot as plt
-
-# Your thresholds
-negative = analyzer.projected_in_1D[2]
-neutral = analyzer.projected_in_1D[1]
-positive = analyzer.projected_in_1D[0]
 
 
 plt.figure(figsize=(10, 5))
@@ -64,14 +60,16 @@ plt.xlabel("Year")
 plt.ylabel("Sentiment Score")
 plt.grid(True)
 plt.tight_layout()
+
+# The centroid thresholds
+negative = analyzer.negative_1D
+positive = analyzer.positive_1D
 # Add horizontal lines
-plt.axhline(y=positive, color='green', linestyle='--', label='Det er godt.')
-plt.axhline(y=neutral, color='gray', linestyle='--', label='Det er okay')
-plt.axhline(y=negative, color='red', linestyle='--', label='Det er dårligt.')
+plt.axhline(y=positive.item(), color='green', linestyle='--', label='Positive Centroid')
+plt.axhline(y=negative.item(), color='red', linestyle='--', label='Negative Centroid')
 
 # Add legend if desired
 plt.legend()
-
 # Show plot
 plt.show()
 
@@ -164,49 +162,35 @@ analyzer = ProjectionAnalyzer(matrix_concept=dangerMPNET, matrix_project=dangerM
 analyzer.project()
 refrence_danger = analyzer.projected_in_1D
 
+# Add danger to list of concept vectors
+concept_vectors = pd.concat([concept_vectors, analyzer.concept_vector], ignore_index=True)
 # --- PLOT!!! ---
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Your thresholds
-negative = refrence_danger[30]
-positive = refrence_danger[61]
-
-
 plt.figure(figsize=(10, 5))
 sns.lineplot(data=result, x="year", y="sentiment", marker='o')
 plt.title("Safety/Danger Over Time")
 plt.xlabel("Year")
-plt.ylabel("Safety to Danger axis:")
+plt.ylabel("Danger to Safety axis:")
 plt.grid(True)
 plt.tight_layout()
+
+# The centroid thresholds
+negative = analyzer.negative_1D
+positive = analyzer.positive_1D
 # Add horizontal lines
-plt.axhline(y=positive, color='green', linestyle='--', label= sentence[61])
-plt.axhline(y=negative, color='red', linestyle='--', label= sentence[30])
+plt.axhline(y=positive.item(), color='green', linestyle='--', label='Safety Centroid')
+plt.axhline(y=negative.item(), color='red', linestyle='--', label='Danger Centroid')
 
 # Add legend if desired
 plt.legend()
 # Show plot
 plt.show()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # %%
-# --- Safety/Danger Axis --- 
+# --- ProGreen/AntiGreen Axis --- 
 pro_green_saetninger = [
     "query: Grøn energi er afgørende for at bekæmpe klimaforandringer.",
     "query: Jeg synes solenergi er en fantastisk løsning.",
@@ -279,9 +263,12 @@ label = ["positive"] * 30 + ["negative"] * 30
 # --- EMBED DANGERS/SAFET ---
 fosilMPNET = MultiLingMPNET.embed(sentence, cache_path="../data/embeddings/GreenFosil.csv")
 fosilMPNET["label"] = label
-# --- Project onto vector (postivie = safe, negative = danger) ---
+# --- Project onto vector ---
 analyzer = ProjectionAnalyzer(matrix_concept=fosilMPNET, matrix_project=filtered)
 analyzer.project()
+
+# Add Danger/Safety to concept vector list:
+concept_vectors = pd.concat([concept_vectors, analyzer.concept_vector], ignore_index=True)
 
 # Add sentiment:
 result = klimaMPNET.iloc[:, -5:].copy()
@@ -296,33 +283,25 @@ refrence_danger = analyzer.projected_in_1D
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Your thresholds
-positive = refrence_danger[0]
-negative = refrence_danger[41]
-
-
-
 plt.figure(figsize=(10, 5))
 sns.lineplot(data=result, x="year", y="sentiment", marker='o')
-plt.title("Green/Fosil Over Time")
+plt.title("Pro-Green/Anti-Green Over Time")
 plt.xlabel("Year")
-plt.ylabel("Safety to danger axis:")
+plt.ylabel("Anti- to Pro-Green axis:")
 plt.grid(True)
 plt.tight_layout()
+
+# The centroid thresholds
+negative = analyzer.negative_1D
+positive = analyzer.positive_1D
 # Add horizontal lines
-plt.axhline(y=positive, color='green', linestyle='--', label= sentence[0])
-plt.axhline(y=negative, color='red', linestyle='--', label= sentence[41])
+plt.axhline(y=positive.item(), color='green', linestyle='--', label='Pro-Green Centroid')
+plt.axhline(y=negative.item(), color='red', linestyle='--', label='Anti-Green Centroid')
 
 # Add legend if desired
 plt.legend()
 # Show plot
 plt.show()
-
-analyzer = ProjectionAnalyzer(matrix_concept=fosilMPNET, matrix_project=filtered)
-analyzer.project()
-
-
-
 
 # %%
 agens_saetninger = [
@@ -392,12 +371,15 @@ passive_saetninger = [
 labels = ["positive"] * 30 + ["negative"] * 30
 sentence = agens_saetninger + passive_saetninger
 
-# --- EMBED DANGERS/SAFET ---
+# --- EMBED Agens ---
 agencyMPNET = MultiLingMPNET.embed(sentence, cache_path="../data/embeddings/AgensPassiv.csv")
 agencyMPNET["label"] = labels
 # --- Project onto vector (postivie = agency, negative = passive) ---
 analyzer = ProjectionAnalyzer(matrix_concept=agencyMPNET, matrix_project=filtered)
 analyzer.project()
+
+# Add Agency to Vector List:
+concept_vectors = pd.concat([concept_vectors, analyzer.concept_vector], ignore_index=True)
 
 # Add sentiment:
 result = klimaMPNET.iloc[:, -5:].copy()
@@ -408,31 +390,30 @@ analyzer.project()
 reference = analyzer.projected_in_1D
 
 # --- PLOT!!! ---
-
 import seaborn as sns
 import matplotlib.pyplot as plt
-
-# Your thresholds
-positive = reference[6]
-negative = reference[58]
-
-
 
 plt.figure(figsize=(10, 5))
 sns.lineplot(data=result, x="year", y="sentiment", marker='o')
 plt.title("Agency Over Time")
 plt.xlabel("Year")
-plt.ylabel("Passive/Active axis:")
+plt.ylabel("Passive to Active axis:")
 plt.grid(True)
 plt.tight_layout()
+
+# The centroid thresholds
+negative = analyzer.negative_1D
+positive = analyzer.positive_1D
 # Add horizontal lines
-plt.axhline(y=positive, color='green', linestyle='--', label= sentence[6])
-plt.axhline(y=negative, color='red', linestyle='--', label= sentence[58])
+plt.axhline(y=positive.item(), color='green', linestyle='--', label='Active Centroid')
+plt.axhline(y=negative.item(), color='red', linestyle='--', label='Passive Centroid')
 
 # Add legend if desired
 plt.legend()
 # Show plot
 plt.show()
+
+
 
 
 # %%
@@ -490,20 +471,6 @@ plt.grid(True)
 plt.tight_layout()
 plt.legend(title="Year", bbox_to_anchor=(1.05, 1), loc='upper left')
 plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # %%
@@ -631,3 +598,156 @@ ani.save("danger_vs_green_energy.gif", writer="pillow", fps=1)
 
 plt.close()
 
+
+# %%
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.figure(figsize=(10, 5))
+sns.histplot(result["sentiment"], bins=30, kde=True, color="skyblue")
+plt.title("Distribution of Projections onto Sentiment Axis")
+plt.xlabel("Sentiment Projection Value")
+plt.ylabel("Frequency")
+plt.tight_layout()
+plt.show()
+
+
+
+# %%
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+plt.figure(figsize=(10, 5))
+sns.histplot(result["sentiment"], bins=30, kde=True, color="skyblue")
+plt.title("Distribution of Projections onto Sentiment Axis")
+plt.xlabel("Sentiment Projection Value")
+plt.ylabel("Frequency")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# %%
+from sklearn.metrics.pairwise import cosine_similarity
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+
+# Manually specify the labels
+labels = ["Sentiment", "Danger", "Green", "Agency"]
+
+# Compute cosine similarity
+similarity_matrix = cosine_similarity(concept_vectors)
+
+# Create labeled DataFrame
+similarity_df = pd.DataFrame(similarity_matrix, index=labels, columns=labels)
+
+# Plot the heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(similarity_df, annot=True, cmap='coolwarm', vmin=0, vmax=1, square=True)
+plt.title('Cosine Similarity Between Concept Vectors')
+plt.tight_layout()
+plt.show()
+
+
+# %%
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import numpy as np
+
+# Step 1: Extract data
+embeddings = klimaMPNET.iloc[:, :-5]
+years = klimaMPNET.iloc[:, -5]  # column with year info
+
+# Step 2: PCA
+pca = PCA(n_components=2)
+pca_result = pca.fit_transform(embeddings)
+
+# Store results
+pca_df = pd.DataFrame(pca_result, columns=["PC1", "PC2"])
+pca_df["year"] = years
+
+# Step 3: Group by year
+mean_pca_by_year = pca_df.groupby('year')[['PC1', 'PC2']].mean().reset_index()
+
+# Step 4: Project concept vectors
+concept_labels = ["Sentiment", "Danger", "Green", "Agency"]
+concept_projected = pca.transform(concept_vectors)
+concept_df = pd.DataFrame(concept_projected, columns=["PC1", "PC2"])
+concept_df["label"] = concept_labels
+
+# Step 5: Plot
+plt.figure(figsize=(10, 8))
+
+# Scatter of mean PCA points by year
+sns.scatterplot(data=mean_pca_by_year, x='PC1', y='PC2', hue='year', palette='viridis', s=100)
+
+# Track progression over years
+plt.plot(mean_pca_by_year["PC1"], mean_pca_by_year["PC2"], color='grey', linestyle='-', linewidth=1, alpha=0.6)
+
+# Annotate years
+for _, row in mean_pca_by_year.iterrows():
+    plt.text(row['PC1'], row['PC2'] + 0.002, str(int(row['year'])), fontsize=8)
+
+# Add concept vectors as arrows
+# Add concept vectors as infinite lines (through origin)
+xlim = plt.xlim(-0.02, 0.025)
+ylim = plt.ylim(-0.02, 0.02)
+for _, row in concept_df.iterrows():
+    pc1, pc2 = row["PC1"], row["PC2"]
+    direction = np.array([pc1, pc2])
+    norm = np.linalg.norm(direction)
+    if norm == 0:
+        continue  # skip zero vector
+    direction = direction / norm  # unit vector
+
+    # Extend in both directions
+    line_length = max(xlim[1], ylim[1]) * 1.2
+    x_vals = np.array([-line_length, line_length])
+    y_vals = direction[1] / direction[0] * x_vals
+
+    plt.plot(x_vals, y_vals, linestyle='--', label=row["label"])
+    plt.text(direction[0]*line_length*1.05, direction[1]*line_length*1.05, row["label"],
+             fontsize=10, weight='bold', color='black')
+
+# Final plot touches
+plt.xlabel("Principal Component 1")
+plt.ylabel("Principal Component 2")
+plt.title("Mean PCA Embedding per Year with Concept Vectors as Lines")
+plt.axis("equal")
+plt.legend(title="Concept", bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
+
+# %% Cosine similarity of concept vectors in PCA space
+# Recompute cosine similarity on the PCA-projected concept vectors
+similarity_matrix_pca = cosine_similarity(concept_projected)
+
+# Round similarity values for display
+similarity_df_pca = pd.DataFrame(similarity_matrix_pca, index=concept_labels, columns=concept_labels)
+similarity_df_pca = similarity_df_pca.round(3)
+
+# Update labels to include PC1/PC2 coordinates
+concept_df["label_with_coords"] = concept_df.apply(
+    lambda row: f'{row["label"]}\n({row["PC1"]:.3f}, {row["PC2"]:.3f})', axis=1
+)
+label_with_coords = concept_df["label_with_coords"].values
+
+# Re-index the DataFrame for heatmap display
+similarity_df_pca.index = label_with_coords
+similarity_df_pca.columns = label_with_coords
+
+# Plot the heatmap
+plt.figure(figsize=(10, 8))
+sns.heatmap(similarity_df_pca, annot=True, fmt=".3f", cmap='coolwarm', vmin=0, vmax=1, square=True)
+plt.title('Cosine Similarity Between Concept Vectors (in PCA Space)')
+plt.xticks(rotation=45, ha='right')
+plt.yticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+
+
+# %%
